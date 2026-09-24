@@ -96,6 +96,7 @@ type winHost struct {
 	pendingMu sync.Mutex
 	stopCh    chan struct{}
 	callCh    chan func()
+	diag      diagState
 }
 
 const wmApp = 0x8000
@@ -191,6 +192,9 @@ func (h *winHost) windowThread(target string, started chan error) {
 	h.hwnd = hwnd
 	tid, _, _ := procGetCurrentThreadId.Call()
 	h.threadID = uint32(tid)
+	h.diag.mu.Lock()
+	h.diag.ownerTID = uint32(tid)
+	h.diag.mu.Unlock()
 
 	ch := edge.NewChromium()
 	ch.DataPath = h.profile
@@ -198,6 +202,7 @@ func (h *winHost) windowThread(target string, started chan error) {
 	ch.MessageCallback = h.onWebMessage
 	ch.NavigationCompletedCallback = func(_ *edge.ICoreWebView2, _ *edge.ICoreWebView2NavigationCompletedEventArgs) {
 		h.ready.Store(true)
+		h.diag.addCompleted()
 		h.navOnce.Do(func() { close(h.navDone) })
 	}
 	// Embed pumps messages internally until init completes.
@@ -213,6 +218,7 @@ func (h *winHost) windowThread(target string, started chan error) {
 	procShowWindow.Call(hwnd, swShow)
 	procUpdateWindow.Call(hwnd)
 	if target != "" {
+		h.diag.addNav(target, h.threadID, false)
 		ch.Navigate(target)
 	}
 	// Main message loop for this window thread.
@@ -270,6 +276,33 @@ func (h *winHost) wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 }
 
 const msgPrefix = "__gtd:"
+
+// DiagSnapshot returns Go-side diagnostics (no DOM, no cookies).
+func (h *winHost) DiagSnapshot() map[string]any {
+	h.diag.mu.Lock()
+	defer h.diag.mu.Unlock()
+	h.mu.Lock()
+	hasController := h.chromium != nil
+	hasWindow := h.hwnd != 0
+	url := h.url
+	profile := h.profile
+	h.mu.Unlock()
+	navs := make([]navRecord, len(h.diag.navigations))
+	copy(navs, h.diag.navigations)
+	done := make([]string, len(h.diag.completedAt))
+	copy(done, h.diag.completedAt)
+	return map[string]any{
+		"name":             h.name,
+		"profile":          profile,
+		"hasWindow":        hasWindow,
+		"hasController":    hasController,
+		"ownerTid":         h.diag.ownerTID,
+		"currentUrl":       url,
+		"navigations":      navs,
+		"navCompletedAt":   done,
+		"webview2Runtime":  RuntimeVersion(),
+	}
+}
 
 // onThread runs fn on the window (WebView2 STA) thread and waits for it.
 func (h *winHost) onThread(fn func()) {
@@ -345,7 +378,11 @@ func (h *winHost) Navigate(url string) error {
 	if !running || ch == nil {
 		return &BrowserError{Code: ErrNotRunning, Message: h.name + " not started; url staged: " + url}
 	}
-	h.onThread(func() { ch.Navigate(url) })
+	ctid, _, _ := procGetCurrentThreadId.Call()
+	h.onThread(func() {
+		h.diag.addNav(url, uint32(ctid), uint32(ctid) != h.threadID)
+		ch.Navigate(url)
+	})
 	return nil
 }
 

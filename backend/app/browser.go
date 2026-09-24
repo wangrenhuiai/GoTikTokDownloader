@@ -209,6 +209,44 @@ func (a *App) SearchKeyword(keyword string) (string, error) {
 	return "ok", nil
 }
 
+// --- Diagnostics (Phase 3A-diag, additive only) ---
+
+func (a *App) diagHost(which string) browser.BrowserHost {
+	a.ensureBrowsers()
+	if which == "search" {
+		return a.browsers.Search
+	}
+	return a.browsers.Main
+}
+
+// DiagRuntime returns Go-side WebView2 diagnostics.
+func (a *App) DiagRuntime(which string) map[string]any {
+	h := a.diagHost(which)
+	if s, ok := h.(interface{ DiagSnapshot() map[string]any }); ok {
+		return s.DiagSnapshot()
+	}
+	return map[string]any{"name": h.Name(), "note": "no native snapshot on this platform"}
+}
+
+// DiagDOM runs the exact DOM snapshot script from the diag spec.
+func (a *App) DiagDOM(which string) (string, error) {
+	const js = `({href: location.href, title: document.title, readyState: document.readyState, bodyExists: !!document.body, bodyLength: document.body ? document.body.innerHTML.length : -1, htmlLength: document.documentElement ? document.documentElement.outerHTML.length : -1, textLength: document.body ? document.body.innerText.length : -1})`
+	return a.RunScript(which, js)
+}
+
+// DiagUA returns userAgent + navigator details (record only, never modified).
+func (a *App) DiagUA(which string) (string, error) {
+	const js = `({ua: navigator.userAgent, language: navigator.language, platform: navigator.platform, webdriver: navigator.webdriver})`
+	return a.RunScript(which, js)
+}
+
+// DiagNetwork summarizes resource response statuses via Performance API
+// (responseStatus needs Chromium 109+; failures sampled, max 5 URLs).
+func (a *App) DiagNetwork(which string) (string, error) {
+	const js = `(function(){var out={nav:null,hist:{},failSample:[]};try{var n=performance.getEntriesByType('navigation')[0];if(n){out.nav={url:n.name,redirects:n.redirectCount,status:n.responseStatus||null,domContent:n.domContentLoadedEventEnd-n.startTime,load:n.loadEventEnd-n.startTime}}}catch(e){out.nav='ERR:'+e}try{var rs=performance.getEntriesByType('resource');for(var i=0;i<rs.length;i++){var s=rs[i].responseStatus||0;var k=String(s);out.hist[k]=(out.hist[k]||0)+1;if((s>=400||s===0)&&out.failSample.length<5){out.failSample.push({status:s,url:String(rs[i].name).slice(0,160)})}}}catch(e){out.histErr=String(e)}return out})()`
+	return a.RunScript(which, js)
+}
+
 // --- SQLite smoke test (no demo residue) ---
 
 func (a *App) DBSmokeTest() (string, error) {

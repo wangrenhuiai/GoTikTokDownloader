@@ -12,6 +12,14 @@ export function ConfirmLoggedIn():Promise<string>;
 
 export function DBSmokeTest():Promise<string>;
 
+export function DiagDOM(arg1:string):Promise<string>;
+
+export function DiagNetwork(arg1:string):Promise<string>;
+
+export function DiagRuntime(arg1:string):Promise<Record<string, any>>;
+
+export function DiagUA(arg1:string):Promise<string>;
+
 export function Emit(arg1:string,arg2:any):Promise<void>;
 
 export function GetAppInfo():Promise<app.AppInfo>;

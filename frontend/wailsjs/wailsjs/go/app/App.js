@@ -18,6 +18,22 @@ export function DBSmokeTest() {
   return window['go']['app']['App']['DBSmokeTest']();
 }
 
+export function DiagDOM(arg1) {
+  return window['go']['app']['App']['DiagDOM'](arg1);
+}
+
+export function DiagNetwork(arg1) {
+  return window['go']['app']['App']['DiagNetwork'](arg1);
+}
+
+export function DiagRuntime(arg1) {
+  return window['go']['app']['App']['DiagRuntime'](arg1);
+}
+
+export function DiagUA(arg1) {
+  return window['go']['app']['App']['DiagUA'](arg1);
+}
+
 export function Emit(arg1, arg2) {
   return window['go']['app']['App']['Emit'](arg1, arg2);
 }
