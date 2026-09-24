@@ -29,92 +29,74 @@ func (a *App) ensureBrowsers() {
 	}
 }
 
-// --- Main browser ---
+// --- Single TikTok browser ---
 
-func (a *App) OpenMainBrowser() (BrowserState, error) {
+// OpenTikTokBrowser starts the one and only TikTok WebView2 instance.
+func (a *App) OpenTikTokBrowser() (BrowserState, error) {
 	a.ensureBrowsers()
-	a.log.Infof("MainBrowserHost starting (embedded WebView2)")
-	if err := a.browsers.Main.Start(); err != nil {
+	a.log.Infof("TikTokBrowserHost starting (single embedded WebView2)")
+	if err := a.browsers.TikTok.Start(); err != nil {
 		if be, ok := err.(*browser.BrowserError); ok && be.Code == browser.ErrAlreadyRunning {
-			return snap(a.browsers.Main), nil
+			return snap(a.browsers.TikTok), nil
 		}
-		a.log.Errorf("MainBrowserHost start failed: %v", err)
-		return snap(a.browsers.Main), err
+		a.log.Errorf("TikTokBrowserHost start failed: %v", err)
+		return snap(a.browsers.TikTok), err
 	}
-	a.Emit(EvtSystemLog, "MainBrowserHost started")
-	a.Emit(EvtSystemStatus, "main browser open")
-	return snap(a.browsers.Main), nil
+	a.Emit(EvtSystemLog, "TikTokBrowserHost started")
+	a.Emit(EvtSystemStatus, "tiktok browser open")
+	return snap(a.browsers.TikTok), nil
 }
 
-func (a *App) CloseMainBrowser() error {
+func (a *App) CloseTikTokBrowser() error {
 	a.ensureBrowsers()
-	a.log.Infof("MainBrowserHost stopped")
-	return a.browsers.Main.Stop()
+	a.log.Infof("TikTokBrowserHost stopped")
+	return a.browsers.TikTok.Stop()
 }
 
-func (a *App) GetMainBrowserState() BrowserState {
+func (a *App) GetTikTokBrowserState() BrowserState {
 	a.ensureBrowsers()
-	return snap(a.browsers.Main)
+	return snap(a.browsers.TikTok)
 }
 
-// --- Search browser ---
-
-func (a *App) OpenSearchBrowser(keyword string) (BrowserState, error) {
+// OpenTikTokSearch reuses the single browser to show a keyword search page.
+func (a *App) OpenTikTokSearch(keyword string) (BrowserState, error) {
 	a.ensureBrowsers()
-	a.log.Infof("SearchBrowserHost starting (keyword len=%d)", len(keyword))
-	if err := a.browsers.Search.Start(); err != nil {
-		if be, ok := err.(*browser.BrowserError); ok && be.Code == browser.ErrAlreadyRunning {
-			return snap(a.browsers.Search), nil
-		}
-		a.log.Errorf("SearchBrowserHost start failed: %v", err)
-		return snap(a.browsers.Search), err
+	st, err := a.OpenTikTokBrowser()
+	if err != nil {
+		return st, err
 	}
 	if keyword != "" {
-		if err := a.browsers.Search.Navigate("https://www.tiktok.com/search?q=" + keyword); err != nil {
-			a.log.Errorf("SearchBrowserHost navigate failed: %v", err)
-		} else {
-			a.Emit(EvtSystemLog, "Phase 3A: embedded search browser navigated")
+		if err := a.browsers.TikTok.Navigate("https://www.tiktok.com/search?q=" + keyword); err != nil {
+			a.log.Errorf("TikTokBrowserHost search navigate failed: %v", err)
+			return snap(a.browsers.TikTok), err
 		}
+		a.Emit(EvtSystemLog, "TikTokBrowserHost navigated to search")
 	}
-	a.Emit(EvtSystemStatus, "search browser open")
-	return snap(a.browsers.Search), nil
+	return snap(a.browsers.TikTok), nil
 }
 
-func (a *App) CloseSearchBrowser() error {
-	a.ensureBrowsers()
-	a.log.Infof("SearchBrowserHost stopped")
-	return a.browsers.Search.Stop()
-}
-
-func (a *App) GetSearchBrowserState() BrowserState {
-	a.ensureBrowsers()
-	return snap(a.browsers.Search)
+// LegacyProfiles reports pre-convergence profiles (tiktok-main/tiktok-search).
+func (a *App) LegacyProfiles() map[string]bool {
+	return browser.LegacyProfiles()
 }
 
 // --- Script / page ---
 
-// RunScript executes JS in the chosen embedded browser ("main"|"search").
-func (a *App) RunScript(which, script string) (string, error) {
+// RunScript executes JS in the single embedded browser.
+func (a *App) RunScript(script string) (string, error) {
 	a.ensureBrowsers()
-	h := a.browsers.Main
-	if which == "search" {
-		h = a.browsers.Search
-	}
-	res, err := h.ExecuteScript(script)
+	res, err := a.browsers.TikTok.ExecuteScript(script)
 	if err != nil {
-		a.log.Errorf("RunScript(%s) failed: %v", which, err)
+		a.log.Errorf("RunScript failed: %v", err)
 		return "", err
 	}
 	return res, nil
 }
 
 // PageInfo bundles title+url+body length via three real script round-trips.
-func (a *App) PageInfo(which string) (map[string]string, error) {
+func (a *App) PageInfo() (map[string]string, error) {
 	a.ensureBrowsers()
-	h := a.browsers.Main
-	if which == "search" {
-		h = a.browsers.Search
-	}
+	h := a.browsers.TikTok
 	out := map[string]string{}
 	for k, js := range map[string]string{
 		"title": "document.title",
@@ -130,12 +112,20 @@ func (a *App) PageInfo(which string) (map[string]string, error) {
 	return out, nil
 }
 
-func (a *App) WaitBrowserReady(which string, timeoutMs int) error {
+func (a *App) WaitBrowserReady(timeoutMs int) error {
 	a.ensureBrowsers()
-	if which == "search" {
-		return a.browsers.Search.WaitReady(timeoutMs)
+	return a.browsers.TikTok.WaitReady(timeoutMs)
+}
+
+// WaitPageReady blocks until page content is really rendered (blank-page guard).
+func (a *App) WaitPageReady(timeoutMs int) (string, error) {
+	a.ensureBrowsers()
+	if w, ok := a.browsers.TikTok.(interface {
+		WaitPageReady(int) (string, error)
+	}); ok {
+		return w.WaitPageReady(timeoutMs)
 	}
-	return a.browsers.Main.WaitReady(timeoutMs)
+	return "", errStr("WaitPageReady unsupported on this platform")
 }
 
 // --- Login ---
@@ -147,16 +137,16 @@ func (a *App) GetLoginURL() string {
 
 func (a *App) OpenLoginWindow() (BrowserState, error) {
 	a.ensureBrowsers()
-	a.log.Infof("TikTok login browser starting (embedded)")
-	st, err := a.OpenMainBrowser()
+	a.log.Infof("TikTok login page opening in single embedded browser")
+	st, err := a.OpenTikTokBrowser()
 	if err != nil {
 		return st, err
 	}
-	if err := a.browsers.Main.Navigate(a.login.LoginURL()); err != nil {
-		return snap(a.browsers.Main), err
+	if err := a.browsers.TikTok.Navigate(a.login.LoginURL()); err != nil {
+		return snap(a.browsers.TikTok), err
 	}
 	a.Emit(EvtSystemLog, "TikTok navigation: login page (embedded)")
-	return snap(a.browsers.Main), nil
+	return snap(a.browsers.TikTok), nil
 }
 
 // GetLoginState: Layer1 local profile + Layer2 live session probe.
@@ -165,8 +155,8 @@ func (a *App) GetLoginState() string {
 	if !a.login.SessionExists() {
 		return "not-logged-in"
 	}
-	if a.browsers != nil && a.browsers.Main.IsReady() {
-		if probe, err := a.browsers.Main.LoginProbe(); err == nil && probe != "unknown" {
+	if a.browsers != nil && a.browsers.TikTok.IsReady() {
+		if probe, err := a.browsers.TikTok.LoginProbe(); err == nil && probe != "unknown" {
 			return probe
 		}
 	}
@@ -176,13 +166,13 @@ func (a *App) GetLoginState() string {
 	return "not-logged-in"
 }
 
-// ProbeLoginState forces a live WebView2 session check (cookie names only).
+// ProbeLoginState forces a live WebView2 session check.
 func (a *App) ProbeLoginState() string {
 	a.ensureBrowsers()
-	if a.browsers == nil || !a.browsers.Main.IsReady() {
+	if a.browsers == nil || !a.browsers.TikTok.IsReady() {
 		return "unknown (browser not open)"
 	}
-	probe, err := a.browsers.Main.LoginProbe()
+	probe, err := a.browsers.TikTok.LoginProbe()
 	if err != nil {
 		return "unknown (" + err.Error() + ")"
 	}
@@ -204,24 +194,16 @@ func (a *App) ConfirmLoggedIn() string {
 func (a *App) SearchKeyword(keyword string) (string, error) {
 	a.ensureBrowsers()
 	if err := a.search.Search(keyword); err != nil {
-		return "Phase 3A: embedded search browser ready; auto-crawl not implemented", err
+		return "Phase 3A-R: single browser ready; auto-crawl not implemented", err
 	}
 	return "ok", nil
 }
 
-// --- Diagnostics (Phase 3A-diag, additive only) ---
+// --- Diagnostics (additive only) ---
 
-func (a *App) diagHost(which string) browser.BrowserHost {
+func (a *App) DiagRuntime() map[string]any {
 	a.ensureBrowsers()
-	if which == "search" {
-		return a.browsers.Search
-	}
-	return a.browsers.Main
-}
-
-// DiagRuntime returns Go-side WebView2 diagnostics.
-func (a *App) DiagRuntime(which string) map[string]any {
-	h := a.diagHost(which)
+	h := a.browsers.TikTok
 	if s, ok := h.(interface{ DiagSnapshot() map[string]any }); ok {
 		return s.DiagSnapshot()
 	}
@@ -229,22 +211,21 @@ func (a *App) DiagRuntime(which string) map[string]any {
 }
 
 // DiagDOM runs the exact DOM snapshot script from the diag spec.
-func (a *App) DiagDOM(which string) (string, error) {
+func (a *App) DiagDOM() (string, error) {
 	const js = `({href: location.href, title: document.title, readyState: document.readyState, bodyExists: !!document.body, bodyLength: document.body ? document.body.innerHTML.length : -1, htmlLength: document.documentElement ? document.documentElement.outerHTML.length : -1, textLength: document.body ? document.body.innerText.length : -1})`
-	return a.RunScript(which, js)
+	return a.RunScript(js)
 }
 
 // DiagUA returns userAgent + navigator details (record only, never modified).
-func (a *App) DiagUA(which string) (string, error) {
+func (a *App) DiagUA() (string, error) {
 	const js = `({ua: navigator.userAgent, language: navigator.language, platform: navigator.platform, webdriver: navigator.webdriver})`
-	return a.RunScript(which, js)
+	return a.RunScript(js)
 }
 
-// DiagNetwork summarizes resource response statuses via Performance API
-// (responseStatus needs Chromium 109+; failures sampled, max 5 URLs).
-func (a *App) DiagNetwork(which string) (string, error) {
+// DiagNetwork summarizes resource response statuses via Performance API.
+func (a *App) DiagNetwork() (string, error) {
 	const js = `(function(){var out={nav:null,hist:{},failSample:[]};try{var n=performance.getEntriesByType('navigation')[0];if(n){out.nav={url:n.name,redirects:n.redirectCount,status:n.responseStatus||null,domContent:n.domContentLoadedEventEnd-n.startTime,load:n.loadEventEnd-n.startTime}}}catch(e){out.nav='ERR:'+e}try{var rs=performance.getEntriesByType('resource');for(var i=0;i<rs.length;i++){var s=rs[i].responseStatus||0;var k=String(s);out.hist[k]=(out.hist[k]||0)+1;if((s>=400||s===0)&&out.failSample.length<5){out.failSample.push({status:s,url:String(rs[i].name).slice(0,160)})}}}catch(e){out.histErr=String(e)}return out})()`
-	return a.RunScript(which, js)
+	return a.RunScript(js)
 }
 
 // --- SQLite smoke test (no demo residue) ---

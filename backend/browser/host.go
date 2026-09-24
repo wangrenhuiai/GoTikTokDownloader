@@ -1,5 +1,10 @@
 package browser
 
+import (
+	"os"
+	"path/filepath"
+)
+
 // BrowserError is a structured browser failure. Never panics, never carries cookies.
 type BrowserError struct {
 	Code    string `json:"code"`
@@ -51,16 +56,27 @@ type BrowserHost interface {
 	LoginProbe() (string, error)
 }
 
-// Manager owns the two independent hosts.
+// Manager owns the single TikTok browser instance.
+// One software = one TikTok WebView2. Login, search and video pages all
+// reuse this instance via Navigate.
 type Manager struct {
-	Main   BrowserHost
-	Search BrowserHost
+	TikTok BrowserHost
 }
 
-// NewManager builds Main + Search hosts with isolated profiles.
+// NewManager builds the single TikTok host.
 func NewManager() *Manager {
 	return &Manager{
-		Main:   newEmbeddedHost("tiktok-main", "TikTok 浏览器", "https://www.tiktok.com/"),
-		Search: newEmbeddedHost("tiktok-search", "TikTok 搜索", "https://www.tiktok.com/search"),
+		TikTok: newEmbeddedHost("tiktok", "TikTok 浏览器", "https://www.tiktok.com/"),
 	}
+}
+
+// LegacyProfiles reports whether pre-convergence profiles still exist.
+// They are NOT used anymore; kept only so a future migration can inspect them.
+func LegacyProfiles() map[string]bool {
+	out := map[string]bool{}
+	for _, n := range []string{"tiktok-main", "tiktok-search"} {
+		st, err := os.Stat(filepath.Join(appData(), "data", "browser", n))
+		out[n] = err == nil && st.IsDir()
+	}
+	return out
 }

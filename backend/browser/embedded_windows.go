@@ -430,6 +430,39 @@ func (h *winHost) ExecuteScript(script string) (string, error) {
 
 func (h *winHost) IsReady() bool { return h.ready.Load() && h.running.Load() }
 
+// WaitPageReady polls the live page until readyState is complete AND body has
+// real content, or the timeout elapses. This is the blank-page guard:
+// NavigationCompleted fires long before TikTok's SPA hydrates.
+func (h *winHost) WaitPageReady(timeoutMs int) (string, error) {
+	if timeoutMs <= 0 {
+		timeoutMs = 30000
+	}
+	const probe = `({rs: document.readyState, t: document.title, n: document.body ? document.body.innerHTML.length : -1})`
+	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
+	var last string
+	for time.Now().Before(deadline) {
+		res, err := h.ExecuteScript(probe)
+		if err != nil {
+			last = "ERR:" + err.Error()
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		last = res
+		var snap struct {
+			RS string `json:"rs"`
+			T  string `json:"t"`
+			N  int    `json:"n"`
+		}
+		if err := json.Unmarshal([]byte(res), &snap); err == nil {
+			if snap.RS == "complete" && snap.N > 1000 {
+				return res, nil
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return last, &BrowserError{Code: ErrPageTimeout, Message: "page content not ready in time"}
+}
+
 func (h *winHost) WaitReady(timeoutMs int) error {
 	if timeoutMs <= 0 {
 		timeoutMs = 30000

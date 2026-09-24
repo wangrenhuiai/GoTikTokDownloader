@@ -7,16 +7,13 @@ import (
 	"gotiktokdownloader/backend/browser"
 )
 
-func TestManagerProfilesIsolated(t *testing.T) {
+func TestSingleHostProfile(t *testing.T) {
 	m := browser.NewManager()
-	if m.Main.ProfileDir() == m.Search.ProfileDir() {
-		t.Fatal("profile dirs must differ")
+	if m.TikTok == nil {
+		t.Fatal("single TikTok host must exist")
 	}
-	if !strings.Contains(m.Main.ProfileDir(), "tiktok-main") {
-		t.Fatalf("main profile: %q", m.Main.ProfileDir())
-	}
-	if !strings.Contains(m.Search.ProfileDir(), "tiktok-search") {
-		t.Fatalf("search profile: %q", m.Search.ProfileDir())
+	if !strings.HasSuffix(m.TikTok.ProfileDir(), "tiktok") {
+		t.Fatalf("canonical profile must be .../tiktok, got %q", m.TikTok.ProfileDir())
 	}
 }
 
@@ -32,6 +29,9 @@ func TestErrorCodes(t *testing.T) {
 }
 
 func TestInterfaceConformance(t *testing.T) {
-	var _ browser.BrowserHost = browser.NewManager().Main
-	var _ browser.BrowserHost = browser.NewManager().Search
+	var _ browser.BrowserHost = browser.NewManager().TikTok
+}
+
+func TestLegacyProfilesCallable(t *testing.T) {
+	_ = browser.LegacyProfiles()
 }

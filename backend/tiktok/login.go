@@ -31,7 +31,7 @@ type LoginService struct {
 
 func NewLoginService() *LoginService {
 	dir, _ := os.UserConfigDir()
-	return &LoginService{profileDir: filepath.Join(dir, "GoTikTokDownloader", "data", "browser", "tiktok-main")}
+	return &LoginService{profileDir: filepath.Join(dir, "GoTikTokDownloader", "data", "browser", "tiktok")}
 }
 
 func (l *LoginService) LoginURL() string { return "https://www.tiktok.com/login" }

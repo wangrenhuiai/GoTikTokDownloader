@@ -4,21 +4,19 @@ import {app} from '../models';
 import {config} from '../models';
 import {context} from '../models';
 
-export function CloseMainBrowser():Promise<void>;
-
-export function CloseSearchBrowser():Promise<void>;
+export function CloseTikTokBrowser():Promise<void>;
 
 export function ConfirmLoggedIn():Promise<string>;
 
 export function DBSmokeTest():Promise<string>;
 
-export function DiagDOM(arg1:string):Promise<string>;
+export function DiagDOM():Promise<string>;
 
-export function DiagNetwork(arg1:string):Promise<string>;
+export function DiagNetwork():Promise<string>;
 
-export function DiagRuntime(arg1:string):Promise<Record<string, any>>;
+export function DiagRuntime():Promise<Record<string, any>>;
 
-export function DiagUA(arg1:string):Promise<string>;
+export function DiagUA():Promise<string>;
 
 export function Emit(arg1:string,arg2:any):Promise<void>;
 
@@ -28,27 +26,27 @@ export function GetLoginState():Promise<string>;
 
 export function GetLoginURL():Promise<string>;
 
-export function GetMainBrowserState():Promise<app.BrowserState>;
-
 export function GetRuntimeStatus():Promise<app.RuntimeStatus>;
-
-export function GetSearchBrowserState():Promise<app.BrowserState>;
 
 export function GetSettings():Promise<config.Config>;
 
+export function GetTikTokBrowserState():Promise<app.BrowserState>;
+
+export function LegacyProfiles():Promise<Record<string, boolean>>;
+
 export function OpenLoginWindow():Promise<app.BrowserState>;
 
-export function OpenMainBrowser():Promise<app.BrowserState>;
+export function OpenTikTokBrowser():Promise<app.BrowserState>;
 
-export function OpenSearchBrowser(arg1:string):Promise<app.BrowserState>;
+export function OpenTikTokSearch(arg1:string):Promise<app.BrowserState>;
 
-export function PageInfo(arg1:string):Promise<Record<string, string>>;
+export function PageInfo():Promise<Record<string, string>>;
 
 export function PingEvent(arg1:string):Promise<string>;
 
 export function ProbeLoginState():Promise<string>;
 
-export function RunScript(arg1:string,arg2:string):Promise<string>;
+export function RunScript(arg1:string):Promise<string>;
 
 export function SearchKeyword(arg1:string):Promise<string>;
 
@@ -60,4 +58,6 @@ export function Shutdown(arg1:context.Context):Promise<void>;
 
 export function Startup(arg1:context.Context):Promise<void>;
 
-export function WaitBrowserReady(arg1:string,arg2:number):Promise<void>;
+export function WaitBrowserReady(arg1:number):Promise<void>;
+
+export function WaitPageReady(arg1:number):Promise<string>;
