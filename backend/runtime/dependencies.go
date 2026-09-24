@@ -1,0 +1,117 @@
+package runtime
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+func exeDir() string {
+	e, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	return filepath.Dir(e)
+}
+
+// candidateRoots returns directories to search for bundled deps:
+// exe dir, exe dir/runtime, cwd, cwd/runtime.
+func candidateRoots() []string {
+	cwd, _ := os.Getwd()
+	return []string{exeDir(), filepath.Join(exeDir(), "runtime"), cwd, filepath.Join(cwd, "runtime")}
+}
+
+func findFile(names ...string) string {
+	for _, r := range candidateRoots() {
+		for _, n := range names {
+			p := filepath.Join(r, n)
+			if st, err := os.Stat(p); err == nil && !st.IsDir() {
+				return p
+			}
+		}
+	}
+	return ""
+}
+
+func GetPythonPath() string {
+	if p := findFile(filepath.Join("python", "python.exe"), "python.exe"); p != "" {
+		return p
+	}
+	if p, err := exec.LookPath("python"); err == nil {
+		return p
+	}
+	return ""
+}
+
+func GetYtDlpPath() string {
+	return findFile(filepath.Join("yt-dlp", "yt-dlp.pyz"), "yt-dlp.pyz", filepath.Join("yt-dlp", "yt-dlp.exe"), "yt-dlp.exe")
+}
+
+func GetFFmpegPath() string {
+	if p := findFile(filepath.Join("ffmpeg", "ffmpeg.exe"), "ffmpeg.exe"); p != "" {
+		return p
+	}
+	if p, err := exec.LookPath("ffmpeg"); err == nil {
+		return p
+	}
+	return ""
+}
+
+func runVersion(bin string, args ...string) string {
+	out, err := exec.Command(bin, args...).Output()
+	if err != nil {
+		return "not found: " + err.Error()
+	}
+	line := strings.TrimSpace(string(out))
+	if i := strings.Index(line, "\n"); i >= 0 {
+		line = line[:i]
+	}
+	return line
+}
+
+func CheckYtDlp() (string, error) {
+	py, ydlp := GetPythonPath(), GetYtDlpPath()
+	if py == "" {
+		return "", errf("bundled python not found")
+	}
+	if ydlp == "" {
+		return "", errf("yt-dlp.pyz not found under runtime/yt-dlp/")
+	}
+	out, err := exec.Command(py, ydlp, "--version").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func GetYtDlpVersion() string {
+	v, err := CheckYtDlp()
+	if err != nil {
+		return "not installed (" + err.Error() + ")"
+	}
+	return v
+}
+
+func FindFFmpeg() string { return GetFFmpegPath() }
+
+func CheckFFmpeg() (string, error) {
+	p := GetFFmpegPath()
+	if p == "" {
+		return "", errf("ffmpeg not found (bundled runtime/ffmpeg/ffmpeg.exe or PATH)")
+	}
+	return runVersion(p, "-version"), nil
+}
+
+func GetFFmpegVersion() string {
+	v, err := CheckFFmpeg()
+	if err != nil {
+		return "not installed"
+	}
+	return v
+}
+
+type errString string
+
+func (e errString) Error() string { return string(e) }
+func errf(s string) error         { return errString(s) }
