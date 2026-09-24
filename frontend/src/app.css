@@ -1,0 +1,13 @@
+:root { color-scheme: light; }
+body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #f5f7fa; color: #1a1a1a; }
+.layout { display: flex; height: 100vh; }
+.top { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 16px; display: flex; gap: 16px; align-items: center; }
+.side { width: 180px; background: #fff; border-right: 1px solid #e5e7eb; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.side button, .row button { padding: 8px 10px; border: 1px solid #d1d5db; background: #fff; border-radius: 8px; cursor: pointer; }
+.side button.active { background: #111827; color: #fff; }
+.main { flex: 1; padding: 16px; overflow: auto; }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+.row { display: flex; gap: 8px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+input { padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; width: 260px; }
+pre.log { background: #0f172a; color: #e2e8f0; padding: 10px; border-radius: 8px; height: 160px; overflow: auto; font-size: 12px; }
+.badge { padding: 2px 8px; border-radius: 999px; background: #eef2ff; border: 1px solid #c7d2fe; font-size: 12px; }

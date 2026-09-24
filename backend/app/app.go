@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"runtime"
 
+	"gotiktokdownloader/backend/browser"
 	"gotiktokdownloader/backend/config"
 	"gotiktokdownloader/backend/database"
-	gort "gotiktokdownloader/backend/runtime"
 	"gotiktokdownloader/backend/logging"
+	gort "gotiktokdownloader/backend/runtime"
+	"gotiktokdownloader/backend/tiktok"
 )
 
 type AppInfo struct {
@@ -29,11 +31,14 @@ type RuntimeStatus struct {
 }
 
 type App struct {
-	ctx context.Context
-	cfg config.Config
-	db  *sql.DB
-	log *logging.Logger
-	emit func(event string, data any)
+	ctx      context.Context
+	cfg      config.Config
+	db       *sql.DB
+	log      *logging.Logger
+	emit     func(event string, data any)
+	browsers *browser.Manager
+	login    *tiktok.LoginService
+	search   *tiktok.SearchService
 }
 
 func New(log *logging.Logger, emit func(event string, data any)) *App {
@@ -43,12 +48,15 @@ func New(log *logging.Logger, emit func(event string, data any)) *App {
 
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	a.ensureBrowsers()
+	a.log.Infof("Wails startup")
 	dbPath, _ := database.DefaultPath()
 	db, err := database.Open(dbPath)
 	if err != nil {
 		a.log.Errorf("open db: %v", err)
 	} else {
 		a.db = db
+		a.log.Infof("SQLite initialized: %s", dbPath)
 	}
 	a.Emit("system:status", "backend ready")
 	a.Emit("system:log", "GoTikTokDownloader backend started")
@@ -66,8 +74,10 @@ func (a *App) Emit(event string, data any) {
 	}
 }
 
+func (a *App) SetEmitter(emit func(event string, data any)) { a.emit = emit }
+
 func (a *App) GetAppInfo() AppInfo {
-	return AppInfo{AppName: "GoTikTokDownloader", Version: "0.1.0-phase1", GoVersion: runtime.Version(), Platform: runtime.GOOS + "/" + runtime.GOARCH}
+	return AppInfo{AppName: "GoTikTokDownloader", Version: "0.2.0-phase2", GoVersion: runtime.Version(), Platform: runtime.GOOS + "/" + runtime.GOARCH}
 }
 
 func (a *App) GetRuntimeStatus() RuntimeStatus {

@@ -19,7 +19,14 @@ func exeDir() string {
 // exe dir, exe dir/runtime, cwd, cwd/runtime.
 func candidateRoots() []string {
 	cwd, _ := os.Getwd()
-	return []string{exeDir(), filepath.Join(exeDir(), "runtime"), cwd, filepath.Join(cwd, "runtime")}
+	roots := []string{exeDir(), filepath.Join(exeDir(), "runtime"), cwd, filepath.Join(cwd, "runtime")}
+	// go test runs with cwd=<pkg>; walk up to repo root.
+	d := cwd
+	for i := 0; i < 4; i++ {
+		d = filepath.Dir(d)
+		roots = append(roots, d, filepath.Join(d, "runtime"))
+	}
+	return roots
 }
 
 func findFile(names ...string) string {

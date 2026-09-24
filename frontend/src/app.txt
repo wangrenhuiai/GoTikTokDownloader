@@ -1,8 +1,0 @@
-import { GetAppInfo, GetRuntimeStatus, PingEvent } from '../wailsjs/go/app/App.js';
-
-let info = $state(null), status = $state(null), log = $state([]);
-async function refresh() {
-  info = await GetAppInfo(); status = await GetRuntimeStatus();
-  log = [...log, 'refresh ok ' + new Date().toLocaleTimeString()];
-}
-function onPing() { PingEvent('hello').then(r => log = [...log, r]); }
