@@ -7,7 +7,8 @@ import (
 )
 
 func TestDefaultValid(t *testing.T) {
-	if err := config.Default().Validate(); err != nil {
+	c := config.Default()
+	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -71,12 +71,21 @@ func runVersion(bin string, args ...string) string {
 }
 
 func CheckYtDlp() (string, error) {
-	py, ydlp := GetPythonPath(), GetYtDlpPath()
+	ydlp := GetYtDlpPath()
+	if ydlp == "" {
+		return "", errf("yt-dlp not found under runtime/yt-dlp/")
+	}
+	// Standalone exe (no python needed)
+	if strings.HasSuffix(strings.ToLower(ydlp), ".exe") {
+		out, err := exec.Command(ydlp, "--version").Output()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(string(out)), nil
+	}
+	py := GetPythonPath()
 	if py == "" {
 		return "", errf("bundled python not found")
-	}
-	if ydlp == "" {
-		return "", errf("yt-dlp.pyz not found under runtime/yt-dlp/")
 	}
 	out, err := exec.Command(py, ydlp, "--version").Output()
 	if err != nil {
