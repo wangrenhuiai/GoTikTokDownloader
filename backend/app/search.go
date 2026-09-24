@@ -1,6 +1,8 @@
 package app
 
 import (
+	"net/url"
+	"strings"
 	"time"
 
 	"gotiktokdownloader/backend/tiktok"
@@ -19,7 +21,7 @@ func (a *App) ensureRunner() *tiktok.SearchRunner {
 
 // StartSearch launches a keyword search on the single TikTok browser.
 // Runs in background; progress arrives via search:* events.
-func (a *App) StartSearch(keyword string, maxResults int) (string, error) {
+func (a *App) StartSearch(keyword string, maxResults, maxNoNewRounds, scrollDelayMs int) (string, error) {
 	a.ensureBrowsers()
 	r := a.ensureRunner()
 	if r.State() == tiktok.SearchSearching || r.State() == tiktok.SearchStopping {
@@ -34,6 +36,12 @@ func (a *App) StartSearch(keyword string, maxResults int) (string, error) {
 	opts := tiktok.DefaultSearchOptions()
 	if maxResults > 0 {
 		opts.MaxResults = maxResults
+	}
+	if maxNoNewRounds > 0 {
+		opts.MaxNoNewRounds = maxNoNewRounds
+	}
+	if scrollDelayMs > 0 {
+		opts.ScrollDelayMs = scrollDelayMs
 	}
 	ev := tiktok.SearchEvents{
 		OnStarted: func(kw string) {
@@ -80,6 +88,42 @@ func (a *App) ClearSearch() string {
 	r := a.ensureRunner()
 	r.Clear()
 	return r.State()
+}
+
+// SearchOptions returns the effective defaults (for UI display).
+func (a *App) SearchOptions() tiktok.SearchOptions {
+	return tiktok.DefaultSearchOptions()
+}
+
+// NavigateTo opens a TikTok video URL in the single embedded browser.
+// It never creates a second browser instance.
+func (a *App) NavigateTo(rawURL string) (BrowserState, error) {
+	a.ensureBrowsers()
+	canon, _, _, ok := tiktok.ParseVideoURL(rawURL)
+	if !ok {
+		// Allow plain search/tag navigation as well, but stay on TikTok.
+		if !isTikTokURL(rawURL) {
+			return snap(a.browsers.TikTok), errStr("only tiktok.com URLs are allowed")
+		}
+		canon = rawURL
+	}
+	st, err := a.OpenTikTokBrowser()
+	if err != nil {
+		return st, err
+	}
+	if err := a.browsers.TikTok.Navigate(canon); err != nil {
+		return snap(a.browsers.TikTok), err
+	}
+	return snap(a.browsers.TikTok), nil
+}
+
+func isTikTokURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	return host == "tiktok.com" || strings.HasSuffix(host, ".tiktok.com")
 }
 
 // saveCandidate persists to the existing videos table (no schema change):

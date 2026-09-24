@@ -66,6 +66,10 @@ export function LegacyProfiles() {
   return window['go']['app']['App']['LegacyProfiles']();
 }
 
+export function NavigateTo(arg1) {
+  return window['go']['app']['App']['NavigateTo'](arg1);
+}
+
 export function OpenLoginWindow() {
   return window['go']['app']['App']['OpenLoginWindow']();
 }
@@ -98,6 +102,10 @@ export function SearchKeyword(arg1) {
   return window['go']['app']['App']['SearchKeyword'](arg1);
 }
 
+export function SearchOptions() {
+  return window['go']['app']['App']['SearchOptions']();
+}
+
 export function SearchResults() {
   return window['go']['app']['App']['SearchResults']();
 }
@@ -118,8 +126,8 @@ export function Shutdown(arg1) {
   return window['go']['app']['App']['Shutdown'](arg1);
 }
 
-export function StartSearch(arg1, arg2) {
-  return window['go']['app']['App']['StartSearch'](arg1, arg2);
+export function StartSearch(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['StartSearch'](arg1, arg2, arg3, arg4);
 }
 
 export function Startup(arg1) {

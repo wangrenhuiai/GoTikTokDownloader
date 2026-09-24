@@ -154,6 +154,24 @@ export namespace config {
 
 export namespace tiktok {
 	
+	export class SearchOptions {
+	    maxResults: number;
+	    maxNoNewRounds: number;
+	    scrollDelayMs: number;
+	    pageReadyTimeoutMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SearchOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.maxResults = source["maxResults"];
+	        this.maxNoNewRounds = source["maxNoNewRounds"];
+	        this.scrollDelayMs = source["scrollDelayMs"];
+	        this.pageReadyTimeoutMs = source["pageReadyTimeoutMs"];
+	    }
+	}
 	export class VideoCandidate {
 	    videoId: string;
 	    url: string;

@@ -37,6 +37,8 @@ export function GetTikTokBrowserState():Promise<app.BrowserState>;
 
 export function LegacyProfiles():Promise<Record<string, boolean>>;
 
+export function NavigateTo(arg1:string):Promise<app.BrowserState>;
+
 export function OpenLoginWindow():Promise<app.BrowserState>;
 
 export function OpenTikTokBrowser():Promise<app.BrowserState>;
@@ -53,6 +55,8 @@ export function RunScript(arg1:string):Promise<string>;
 
 export function SearchKeyword(arg1:string):Promise<string>;
 
+export function SearchOptions():Promise<tiktok.SearchOptions>;
+
 export function SearchResults():Promise<Array<tiktok.VideoCandidate>>;
 
 export function SearchState():Promise<string>;
@@ -63,7 +67,7 @@ export function SetSettings(arg1:config.Config):Promise<void>;
 
 export function Shutdown(arg1:context.Context):Promise<void>;
 
-export function StartSearch(arg1:string,arg2:number):Promise<string>;
+export function StartSearch(arg1:string,arg2:number,arg3:number,arg4:number):Promise<string>;
 
 export function Startup(arg1:context.Context):Promise<void>;
 

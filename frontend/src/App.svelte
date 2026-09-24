@@ -44,6 +44,7 @@ async function waitContent() { contentOut = await window.go.app.App.WaitPageRead
 let loginProbe = '', contentOut = '';
 let jsOut = '';
 let searchState = 'Idle', searchResults = [], checked = {}, maxResults = 100;
+let maxNoNew = 5, scrollDelay = 500, copyMsg = '';
 async function runJS(script) {
   try { jsOut = script + '\n=> ' + await window.go.app.App.RunScript(script); }
   catch (e) { jsOut = 'FAIL: ' + e; }
@@ -53,7 +54,7 @@ async function pageInfo() {
   catch (e) { jsOut = 'FAIL: ' + e; }
 }
 async function startSearch() {
-  searchState = await window.go.app.App.StartSearch(keyword, maxResults);
+  searchState = await window.go.app.App.StartSearch(keyword, maxResults, maxNoNew, scrollDelay);
   await pullSearch();
 }
 async function stopSearch() { searchState = await window.go.app.App.StopSearch(); }
@@ -68,6 +69,30 @@ function selectAll(v) {
   const o = {};
   for (const c of searchResults) o[c.videoId] = v;
   checked = o;
+}
+function invertSelection() {
+  const o = { ...checked };
+  for (const c of searchResults) o[c.videoId] = !o[c.videoId];
+  checked = o;
+}
+function selectedResults() {
+  return searchResults.filter((c) => checked[c.videoId]);
+}
+async function copySelected() {
+  const urls = selectedResults().map((c) => c.url);
+  if (urls.length === 0) { copyMsg = '未选中任何视频'; return; }
+  try {
+    await navigator.clipboard.writeText(urls.join('\n'));
+    copyMsg = `已复制 ${urls.length} 个链接`;
+  } catch (e) { copyMsg = '复制失败：' + e; }
+}
+async function openSelected() {
+  const sel = selectedResults();
+  if (sel.length === 0) { copyMsg = '未选中任何视频'; return; }
+  try {
+    browserState = await window.go.app.App.NavigateTo(sel[0].url);
+    copyMsg = `已在唯一浏览器打开 ${sel[0].videoId}（${sel.length} 个选中，只打开第 1 个）`;
+  } catch (e) { copyMsg = '打开失败：' + e; }
 }
 
 onMount(() => {
@@ -110,7 +135,9 @@ onMount(() => {
       <div class="card"><h3>关键词搜索（唯一浏览器复用导航）</h3>
         <div class="row">
           <input bind:value={keyword} placeholder="cooking" />
-          <input bind:value={maxResults} type="number" style="width:90px" title="MaxResults" />
+          <input bind:value={maxResults} type="number" style="width:90px" title="最大采集数" />
+          <label>无新增轮数 <input bind:value={maxNoNew} type="number" style="width:60px" /></label>
+          <label>滚动间隔ms <input bind:value={scrollDelay} type="number" min="200" max="3000" step="100" style="width:70px" /></label>
           <button on:click={startSearch}>搜索</button>
           <button on:click={stopSearch}>停止</button>
           <button on:click={pullSearch}>刷新结果</button>
@@ -119,8 +146,12 @@ onMount(() => {
         <div class="row"><span>搜索状态：{searchState}</span><span>发现：{searchResults.length} 个视频</span></div>
         <div class="row">
           <button on:click={() => selectAll(true)}>全选</button>
-          <button on:click={() => selectAll(false)}>反选</button>
+          <button on:click={() => selectAll(false)}>取消全选</button>
+          <button on:click={invertSelection}>反选</button>
+          <button on:click={copySelected}>复制选中视频链接</button>
+          <button on:click={openSelected}>打开选中视频</button>
           <span>已选：{Object.values(checked).filter(Boolean).length}</span>
+          <span>{copyMsg}</span>
         </div>
         <table border="1" cellpadding="4" style="border-collapse:collapse;width:100%;font-size:12px">
           <thead><tr><th>□</th><th>作者</th><th>视频ID</th><th>视频链接</th></tr></thead>
