@@ -2,4 +2,5 @@
 frontend/dist/
 build/bin/
 release/v0.1.0/
+runtime/ffmpeg/
 
