@@ -152,3 +152,34 @@ export namespace config {
 
 }
 
+export namespace tiktok {
+	
+	export class VideoCandidate {
+	    videoId: string;
+	    url: string;
+	    authorId: string;
+	    authorName: string;
+	    title: string;
+	    publishTime: number;
+	    source: string;
+	    keyword: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VideoCandidate(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.videoId = source["videoId"];
+	        this.url = source["url"];
+	        this.authorId = source["authorId"];
+	        this.authorName = source["authorName"];
+	        this.title = source["title"];
+	        this.publishTime = source["publishTime"];
+	        this.source = source["source"];
+	        this.keyword = source["keyword"];
+	    }
+	}
+
+}
+

@@ -43,6 +43,7 @@ async function probeLogin() { loginProbe = await window.go.app.App.ProbeLoginSta
 async function waitContent() { contentOut = await window.go.app.App.WaitPageReady(30000); }
 let loginProbe = '', contentOut = '';
 let jsOut = '';
+let searchState = 'Idle', searchResults = [], checked = {}, maxResults = 100;
 async function runJS(script) {
   try { jsOut = script + '\n=> ' + await window.go.app.App.RunScript(script); }
   catch (e) { jsOut = 'FAIL: ' + e; }
@@ -51,6 +52,23 @@ async function pageInfo() {
   try { jsOut = 'pageInfo\n=> ' + JSON.stringify(await window.go.app.App.PageInfo(), null, 2); }
   catch (e) { jsOut = 'FAIL: ' + e; }
 }
+async function startSearch() {
+  searchState = await window.go.app.App.StartSearch(keyword, maxResults);
+  await pullSearch();
+}
+async function stopSearch() { searchState = await window.go.app.App.StopSearch(); }
+async function pullSearch() {
+  try {
+    searchState = await window.go.app.App.SearchState();
+    searchResults = await window.go.app.App.SearchResults();
+  } catch (e) { push('error', String(e)); }
+}
+async function clearSearch() { searchState = await window.go.app.App.ClearSearch(); searchResults = []; checked = {}; }
+function selectAll(v) {
+  const o = {};
+  for (const c of searchResults) o[c.videoId] = v;
+  checked = o;
+}
 
 onMount(() => {
   refresh();
@@ -58,6 +76,11 @@ onMount(() => {
     window.runtime.EventsOn('system:log', (d) => push('system:log', d));
     window.runtime.EventsOn('system:status', (d) => push('system:status', d));
     window.runtime.EventsOn('task:progress', (d) => push('task:progress', d));
+    window.runtime.EventsOn('search:started', (d) => { push('search:started', d); pullSearch(); });
+    window.runtime.EventsOn('search:candidate', () => pullSearch());
+    window.runtime.EventsOn('search:progress', (d) => push('search:progress', d));
+    window.runtime.EventsOn('search:completed', (d) => { push('search:completed', d); pullSearch(); });
+    window.runtime.EventsOn('search:error', (d) => push('search:error', d));
     push('events', 'EventsOn subscribed: system:log/system:status/task:progress');
   } catch (e) { push('error', 'EventsOn unavailable: ' + e); }
 });
@@ -85,8 +108,33 @@ onMount(() => {
       <div class="card"><h3>事件日志（EventsOn）</h3><pre class="log">{events.join('\n')}</pre></div>
     {:else if tab==='search'}
       <div class="card"><h3>关键词搜索（唯一浏览器复用导航）</h3>
-        <div class="row"><input bind:value={keyword} placeholder="football" /><button on:click={openSearch}>搜索</button></div>
-        <pre>{JSON.stringify(browserState, null, 2)}</pre>
+        <div class="row">
+          <input bind:value={keyword} placeholder="cooking" />
+          <input bind:value={maxResults} type="number" style="width:90px" title="MaxResults" />
+          <button on:click={startSearch}>搜索</button>
+          <button on:click={stopSearch}>停止</button>
+          <button on:click={pullSearch}>刷新结果</button>
+          <button on:click={clearSearch}>清空结果</button>
+        </div>
+        <div class="row"><span>搜索状态：{searchState}</span><span>发现：{searchResults.length} 个视频</span></div>
+        <div class="row">
+          <button on:click={() => selectAll(true)}>全选</button>
+          <button on:click={() => selectAll(false)}>反选</button>
+          <span>已选：{Object.values(checked).filter(Boolean).length}</span>
+        </div>
+        <table border="1" cellpadding="4" style="border-collapse:collapse;width:100%;font-size:12px">
+          <thead><tr><th>□</th><th>作者</th><th>视频ID</th><th>视频链接</th></tr></thead>
+          <tbody>
+          {#each searchResults as c}
+          <tr>
+            <td><input type="checkbox" bind:checked={checked[c.videoId]} /></td>
+            <td>{c.authorName}</td>
+            <td>{c.videoId}</td>
+            <td style="word-break:break-all">{c.url}</td>
+          </tr>
+          {/each}
+          </tbody>
+        </table>
       </div>
     {:else if tab==='browser'}
       <div class="card"><h3>TikTok 登录（唯一软件内部浏览器）</h3>

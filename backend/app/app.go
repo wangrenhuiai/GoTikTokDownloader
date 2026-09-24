@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"runtime"
+	"sync"
 
 	"gotiktokdownloader/backend/browser"
 	"gotiktokdownloader/backend/config"
@@ -39,6 +40,8 @@ type App struct {
 	browsers *browser.Manager
 	login    *tiktok.LoginService
 	search   *tiktok.SearchService
+	runner   *tiktok.SearchRunner
+	searchMu sync.Mutex
 }
 
 func New(log *logging.Logger, emit func(event string, data any)) *App {
