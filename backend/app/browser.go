@@ -33,9 +33,9 @@ func (a *App) ensureBrowsers() {
 
 func (a *App) OpenMainBrowser() (BrowserState, error) {
 	a.ensureBrowsers()
-	a.log.Infof("MainBrowserHost started")
+	a.log.Infof("MainBrowserHost starting (embedded WebView2)")
 	if err := a.browsers.Main.Start(); err != nil {
-		if be, ok := err.(*browser.BrowserError); ok && be.Code == "ALREADY_RUNNING" {
+		if be, ok := err.(*browser.BrowserError); ok && be.Code == browser.ErrAlreadyRunning {
 			return snap(a.browsers.Main), nil
 		}
 		a.log.Errorf("MainBrowserHost start failed: %v", err)
@@ -61,17 +61,20 @@ func (a *App) GetMainBrowserState() BrowserState {
 
 func (a *App) OpenSearchBrowser(keyword string) (BrowserState, error) {
 	a.ensureBrowsers()
-	a.log.Infof("SearchBrowserHost started (keyword=%q)", keyword)
+	a.log.Infof("SearchBrowserHost starting (keyword len=%d)", len(keyword))
 	if err := a.browsers.Search.Start(); err != nil {
-		if be, ok := err.(*browser.BrowserError); ok && be.Code == "ALREADY_RUNNING" {
+		if be, ok := err.(*browser.BrowserError); ok && be.Code == browser.ErrAlreadyRunning {
 			return snap(a.browsers.Search), nil
 		}
 		a.log.Errorf("SearchBrowserHost start failed: %v", err)
 		return snap(a.browsers.Search), err
 	}
 	if keyword != "" {
-		_ = a.browsers.Search.Navigate("https://www.tiktok.com/search?q=" + keyword)
-		a.Emit(EvtSystemLog, "Phase 2: search browser infrastructure started")
+		if err := a.browsers.Search.Navigate("https://www.tiktok.com/search?q=" + keyword); err != nil {
+			a.log.Errorf("SearchBrowserHost navigate failed: %v", err)
+		} else {
+			a.Emit(EvtSystemLog, "Phase 3A: embedded search browser navigated")
+		}
 	}
 	a.Emit(EvtSystemStatus, "search browser open")
 	return snap(a.browsers.Search), nil
@@ -88,6 +91,53 @@ func (a *App) GetSearchBrowserState() BrowserState {
 	return snap(a.browsers.Search)
 }
 
+// --- Script / page ---
+
+// RunScript executes JS in the chosen embedded browser ("main"|"search").
+func (a *App) RunScript(which, script string) (string, error) {
+	a.ensureBrowsers()
+	h := a.browsers.Main
+	if which == "search" {
+		h = a.browsers.Search
+	}
+	res, err := h.ExecuteScript(script)
+	if err != nil {
+		a.log.Errorf("RunScript(%s) failed: %v", which, err)
+		return "", err
+	}
+	return res, nil
+}
+
+// PageInfo bundles title+url+body length via three real script round-trips.
+func (a *App) PageInfo(which string) (map[string]string, error) {
+	a.ensureBrowsers()
+	h := a.browsers.Main
+	if which == "search" {
+		h = a.browsers.Search
+	}
+	out := map[string]string{}
+	for k, js := range map[string]string{
+		"title": "document.title",
+		"url":   "location.href",
+		"body":  "document.body ? document.body.innerText.length : -1",
+	} {
+		v, err := h.ExecuteScript(js)
+		if err != nil {
+			return out, err
+		}
+		out[k] = v
+	}
+	return out, nil
+}
+
+func (a *App) WaitBrowserReady(which string, timeoutMs int) error {
+	a.ensureBrowsers()
+	if which == "search" {
+		return a.browsers.Search.WaitReady(timeoutMs)
+	}
+	return a.browsers.Main.WaitReady(timeoutMs)
+}
+
 // --- Login ---
 
 func (a *App) GetLoginURL() string {
@@ -97,24 +147,46 @@ func (a *App) GetLoginURL() string {
 
 func (a *App) OpenLoginWindow() (BrowserState, error) {
 	a.ensureBrowsers()
-	a.log.Infof("TikTok login browser starting")
+	a.log.Infof("TikTok login browser starting (embedded)")
 	st, err := a.OpenMainBrowser()
 	if err != nil {
 		return st, err
 	}
 	if err := a.browsers.Main.Navigate(a.login.LoginURL()); err != nil {
-		if be, ok := err.(*browser.BrowserError); ok && be.Code == "NOT_RUNNING" {
-			return snap(a.browsers.Main), nil
-		}
 		return snap(a.browsers.Main), err
 	}
-	a.Emit(EvtSystemLog, "TikTok navigation: login page")
+	a.Emit(EvtSystemLog, "TikTok navigation: login page (embedded)")
 	return snap(a.browsers.Main), nil
 }
 
+// GetLoginState: Layer1 local profile + Layer2 live session probe.
 func (a *App) GetLoginState() string {
 	a.ensureBrowsers()
-	return a.login.CheckLoginState()
+	if !a.login.SessionExists() {
+		return "not-logged-in"
+	}
+	if a.browsers != nil && a.browsers.Main.IsReady() {
+		if probe, err := a.browsers.Main.LoginProbe(); err == nil && probe != "unknown" {
+			return probe
+		}
+	}
+	if a.login.CheckLoginState() == "logged-in" {
+		return "logged-in (unverified)"
+	}
+	return "not-logged-in"
+}
+
+// ProbeLoginState forces a live WebView2 session check (cookie names only).
+func (a *App) ProbeLoginState() string {
+	a.ensureBrowsers()
+	if a.browsers == nil || !a.browsers.Main.IsReady() {
+		return "unknown (browser not open)"
+	}
+	probe, err := a.browsers.Main.LoginProbe()
+	if err != nil {
+		return "unknown (" + err.Error() + ")"
+	}
+	return probe
 }
 
 func (a *App) ConfirmLoggedIn() string {
@@ -132,7 +204,7 @@ func (a *App) ConfirmLoggedIn() string {
 func (a *App) SearchKeyword(keyword string) (string, error) {
 	a.ensureBrowsers()
 	if err := a.search.Search(keyword); err != nil {
-		return "Phase 2: search browser infrastructure ready; auto-crawl not implemented", err
+		return "Phase 3A: embedded search browser ready; auto-crawl not implemented", err
 	}
 	return "ok", nil
 }

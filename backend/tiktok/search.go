@@ -16,10 +16,14 @@ func (s *SearchService) Search(keyword string) error {
 
 // VideoCandidate is the future handoff: Browser discover -> Deduplicator -> DownloadTaskFactory.
 type VideoCandidate struct {
-	URL      string `json:"url"`
-	VideoID  string `json:"videoId"`
-	AuthorID string `json:"authorId"`
-	Keyword  string `json:"keyword"`
+	VideoID     string `json:"videoId"`
+	URL         string `json:"url"`
+	AuthorID    string `json:"authorId"`
+	AuthorName  string `json:"authorName"`
+	Title       string `json:"title"`
+	PublishTime int64  `json:"publishTime"`
+	Source      string `json:"source"`
+	Keyword     string `json:"keyword"`
 }
 
 // VideoCollector is a Phase 2 interface reservation only.

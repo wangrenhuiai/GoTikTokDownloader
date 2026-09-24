@@ -34,7 +34,13 @@ export function OpenMainBrowser():Promise<app.BrowserState>;
 
 export function OpenSearchBrowser(arg1:string):Promise<app.BrowserState>;
 
+export function PageInfo(arg1:string):Promise<Record<string, string>>;
+
 export function PingEvent(arg1:string):Promise<string>;
+
+export function ProbeLoginState():Promise<string>;
+
+export function RunScript(arg1:string,arg2:string):Promise<string>;
 
 export function SearchKeyword(arg1:string):Promise<string>;
 
@@ -45,3 +51,5 @@ export function SetSettings(arg1:config.Config):Promise<void>;
 export function Shutdown(arg1:context.Context):Promise<void>;
 
 export function Startup(arg1:context.Context):Promise<void>;
+
+export function WaitBrowserReady(arg1:string,arg2:number):Promise<void>;

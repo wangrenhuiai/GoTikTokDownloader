@@ -40,6 +40,17 @@ async function openSearch() { searchState = await window.go.app.App.OpenSearchBr
 async function closeSearch() { await window.go.app.App.CloseSearchBrowser(); searchState = await window.go.app.App.GetSearchBrowserState(); }
 async function openLogin() { await window.go.app.App.OpenLoginWindow(); mainState = await window.go.app.App.GetMainBrowserState(); }
 async function confirmLogin() { loginState = await window.go.app.App.ConfirmLoggedIn(); }
+async function probeLogin() { loginProbe = await window.go.app.App.ProbeLoginState(); }
+let loginProbe = '';
+let jsOut = '';
+async function runJS(which, script) {
+  try { jsOut = which + ' :: ' + script + '\n=> ' + await window.go.app.App.RunScript(which, script); }
+  catch (e) { jsOut = 'FAIL: ' + e; }
+}
+async function pageInfo(which) {
+  try { jsOut = which + ' pageInfo\n=> ' + JSON.stringify(await window.go.app.App.PageInfo(which), null, 2); }
+  catch (e) { jsOut = 'FAIL: ' + e; }
+}
 
 onMount(() => {
   refresh();
@@ -78,8 +89,9 @@ onMount(() => {
         <pre>{JSON.stringify(searchState, null, 2)}</pre>
       </div>
     {:else if tab==='browser'}
-      <div class="card"><h3>TikTok 登录</h3>
-        <div class="row"><button on:click={openLogin}>打开登录窗口</button><button on:click={confirmLogin}>我已扫码成功</button><span>状态：{loginState}</span></div>
+      <div class="card"><h3>TikTok 登录（软件内部浏览器）</h3>
+        <div class="row"><button on:click={openLogin}>打开登录窗口</button><button on:click={confirmLogin}>我已扫码成功</button><button on:click={probeLogin}>检测登录会话</button></div>
+        <div class="row"><span>状态：{loginState}</span><span>会话探针：{loginProbe}</span></div>
       </div>
       <div class="card"><h3>主浏览器</h3>
         <div class="row"><button on:click={openMain}>打开主浏览器</button><button on:click={closeMain}>关闭主浏览器</button></div>
@@ -88,6 +100,19 @@ onMount(() => {
       <div class="card"><h3>搜索浏览器</h3>
         <div class="row"><button on:click={openSearch}>打开搜索浏览器</button><button on:click={closeSearch}>关闭搜索浏览器</button></div>
         <pre>{JSON.stringify(searchState, null, 2)}</pre>
+      </div>
+      <div class="card"><h3>JavaScript 验证（真实 WebView2 回传）</h3>
+        <div class="row">
+          <button on:click={() => runJS('main', 'document.title')}>main: document.title</button>
+          <button on:click={() => runJS('main', 'location.href')}>main: location.href</button>
+          <button on:click={() => runJS('main', 'document.body ? document.body.innerText.length : -1')}>main: body 长度</button>
+        </div>
+        <div class="row">
+          <button on:click={() => pageInfo('main')}>main: PageInfo</button>
+          <button on:click={() => pageInfo('search')}>search: PageInfo</button>
+          <button on:click={() => runJS('search', 'location.href')}>search: location.href</button>
+        </div>
+        <pre>{jsOut}</pre>
       </div>
     {:else}
       <div class="card"><h3>设置（来自 Go）</h3><pre>{JSON.stringify(settings, null, 2)}</pre></div>

@@ -62,8 +62,20 @@ export function OpenSearchBrowser(arg1) {
   return window['go']['app']['App']['OpenSearchBrowser'](arg1);
 }
 
+export function PageInfo(arg1) {
+  return window['go']['app']['App']['PageInfo'](arg1);
+}
+
 export function PingEvent(arg1) {
   return window['go']['app']['App']['PingEvent'](arg1);
+}
+
+export function ProbeLoginState() {
+  return window['go']['app']['App']['ProbeLoginState']();
+}
+
+export function RunScript(arg1, arg2) {
+  return window['go']['app']['App']['RunScript'](arg1, arg2);
 }
 
 export function SearchKeyword(arg1) {
@@ -84,4 +96,8 @@ export function Shutdown(arg1) {
 
 export function Startup(arg1) {
   return window['go']['app']['App']['Startup'](arg1);
+}
+
+export function WaitBrowserReady(arg1, arg2) {
+  return window['go']['app']['App']['WaitBrowserReady'](arg1, arg2);
 }
