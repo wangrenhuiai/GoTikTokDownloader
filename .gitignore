@@ -1,0 +1,5 @@
+﻿frontend/node_modules/
+frontend/dist/
+build/bin/
+release/v0.1.0/
+
